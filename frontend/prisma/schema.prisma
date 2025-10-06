@@ -63,14 +63,15 @@ enum Role {
 }
 
 model Patient {
-  id        String   @id @default(cuid())
-  firstName String
-  lastName  String
-  dob       DateTime
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String      @id @default(cuid())
+  firstName  String
+  lastName   String
+  dob        DateTime
+  phone      String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
   encounters Encounter[]
+  documents  Document[]
 }
 
 model Encounter {
