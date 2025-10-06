@@ -82,7 +82,7 @@ export default function Home() {
           <p>Phase 1: Authentication, Patient Management API, and UI Framework Complete</p>
           <p className="mt-2">
             <a 
-              href="https://github.com/YOUR_USERNAME/urgentcare-emr" 
+              href="https://github.com/kj12354/UrgentCare" 
               target="_blank" 
               rel="noopener noreferrer"
               className="hover:text-foreground transition"
