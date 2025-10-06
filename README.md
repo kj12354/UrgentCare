@@ -161,6 +161,7 @@ npx prisma migrate dev
 - ✅ shadcn/ui components installed and configured
 - ✅ Backend DI, CORS, and middleware wired
 - ✅ PatientService and PatientsController with full CRUD
+- ✅ Deployed to Vercel with CI/CD pipeline
 
 ## Testing the API
 
