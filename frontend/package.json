@@ -4,11 +4,12 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate"
   },
+  "packageManager": "yarn@1.22.19",
   "dependencies": {
     "@auth/prisma-adapter": "^1.0.12",
     "@prisma/client": "^5.17.0",
