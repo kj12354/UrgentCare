@@ -83,9 +83,9 @@ AWS_S3_BUCKET="your-bucket-name"
 AWS_ACCESS_KEY_ID="your-access-key"
 AWS_SECRET_ACCESS_KEY="your-secret-key"
 
-# AI Providers
-ANTHROPIC_API_KEY="sk-ant-..."
-OPENAI_API_KEY="sk-..."  # For Whisper
+# AI Providers (Phase 3+)
+ANTHROPIC_API_KEY="sk-ant-..."  # For SOAP note generation (Phase 4)
+OPENAI_API_KEY="sk-..."  # For Whisper transcription (Phase 3)
 ```
 
 ### 2. Backend Setup
@@ -163,6 +163,27 @@ npx prisma migrate dev
 - ✅ PatientService and PatientsController with full CRUD
 - ✅ Deployed to Vercel with CI/CD pipeline
 
+## Phase 2 ✅ Complete
+
+- ✅ API client infrastructure with error handling
+- ✅ PatientList component with search and table view
+- ✅ PatientForm with validation for create/edit
+- ✅ PatientDetail view with navigation
+- ✅ Full CRUD operations connected to backend
+- ✅ Loading states and error handling
+
+## Phase 3 ✅ Complete
+
+- ✅ VoiceRecorder component with MediaRecorder API
+- ✅ Pause/resume recording functionality
+- ✅ Audio playback with controls
+- ✅ Whisper API integration for transcription
+- ✅ Medical context-aware transcription
+- ✅ TranscriptionDisplay with edit/copy features
+- ✅ Segment-level timestamps
+- ✅ S3 upload utility for HIPAA-compliant storage
+- ✅ New encounter workflow page
+
 ## Testing the API
 
 ### Using Swagger UI
@@ -206,19 +227,9 @@ curl https://localhost:5099/api/patients -k
 - **Session Management**: 8-hour timeout for HIPAA compliance
 - **Middleware**: ErrorHandling, HIPAACompliance, AuditLogging
 
-## Next Steps (Phase 2+)
+## Next Steps (Phase 4+)
 
-### Phase 2: Patient Management UI
-- Build PatientList component with search and pagination
-- Create PatientForm with validation
-- Implement patient detail view with encounter history
-
-### Phase 3: AI Voice & Transcription
-- VoiceRecorder component with MediaRecorder API
-- Whisper API integration for transcription
-- Real-time audio streaming
-
-### Phase 4: AI SOAP Note Generation
+### Phase 4: AI SOAP Note Generation (In Progress)
 - Claude API integration with medical prompts
 - SOAPNoteEditor component
 - ICD-10 code suggestions

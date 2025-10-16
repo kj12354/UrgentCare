@@ -1,0 +1,224 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { VoiceRecorder } from "@/components/voice/VoiceRecorder";
+import { TranscriptionDisplay } from "@/components/voice/TranscriptionDisplay";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import Link from "next/link";
+
+interface TranscriptionSegment {
+  id: number;
+  start: number;
+  end: number;
+  text: string;
+}
+
+export default function NewEncounterPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const patientId = searchParams.get("patientId");
+
+  const [chiefComplaint, setChiefComplaint] = useState("");
+  const [transcript, setTranscript] = useState("");
+  const [duration, setDuration] = useState<number>(0);
+  const [language, setLanguage] = useState<string>();
+  const [segments, setSegments] = useState<TranscriptionSegment[]>([]);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleRecordingComplete = (blob: Blob, recordingDuration: number) => {
+    setAudioBlob(blob);
+    setDuration(recordingDuration);
+  };
+
+  const handleTranscription = async (blob: Blob) => {
+    try {
+      const formData = new FormData();
+      formData.append("audio", blob, "recording.webm");
+
+      // Add patient context if available
+      if (chiefComplaint) {
+        formData.append(
+          "patientContext",
+          JSON.stringify({ chiefComplaint })
+        );
+      }
+
+      const response = await fetch("/api/transcribe", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Transcription failed");
+      }
+
+      const data = await response.json();
+      setTranscript(data.transcript);
+      setDuration(data.duration || duration);
+      setLanguage(data.language);
+      setSegments(data.segments || []);
+
+      return data.transcript;
+    } catch (error) {
+      console.error("Transcription error:", error);
+      throw error;
+    }
+  };
+
+  const handleSaveTranscript = (editedTranscript: string) => {
+    setTranscript(editedTranscript);
+  };
+
+  const handleSaveEncounter = async () => {
+    if (!transcript || !chiefComplaint) {
+      alert("Please provide a chief complaint and transcription");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // TODO: Save encounter to backend
+      // This will be implemented when we add the encounters API
+      console.log("Saving encounter:", {
+        patientId,
+        chiefComplaint,
+        transcript,
+        duration,
+      });
+
+      // For now, just navigate back
+      alert("Encounter saved successfully!");
+      if (patientId) {
+        router.push(`/patients/${patientId}`);
+      } else {
+        router.push("/encounters");
+      }
+    } catch (error) {
+      console.error("Error saving encounter:", error);
+      alert("Failed to save encounter");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="container mx-auto py-8 space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href={patientId ? `/patients/${patientId}` : "/encounters"}>
+            <Button variant="ghost" size="sm" className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold">New Encounter</h1>
+            <p className="text-gray-600">Record and transcribe patient encounter</p>
+          </div>
+        </div>
+        <Button
+          onClick={handleSaveEncounter}
+          disabled={!transcript || !chiefComplaint || isSaving}
+          className="gap-2"
+        >
+          {isSaving ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4" />
+              Save Encounter
+            </>
+          )}
+        </Button>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Left Column - Recording & Info */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Encounter Information</CardTitle>
+              <CardDescription>
+                Basic information about this encounter
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="chiefComplaint">
+                  Chief Complaint <span className="text-red-500">*</span>
+                </Label>
+                <Textarea
+                  id="chiefComplaint"
+                  placeholder="e.g., Chest pain, Fever, Cough..."
+                  value={chiefComplaint}
+                  onChange={(e) => setChiefComplaint(e.target.value)}
+                  rows={3}
+                />
+              </div>
+
+              {patientId && (
+                <div className="space-y-2">
+                  <Label>Patient ID</Label>
+                  <Input value={patientId} disabled />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <VoiceRecorder
+            onRecordingComplete={handleRecordingComplete}
+            onTranscriptionRequest={handleTranscription}
+          />
+
+          {audioBlob && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Recording Details</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Duration:</span>
+                    <span className="font-medium">{duration}s</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Size:</span>
+                    <span className="font-medium">
+                      {(audioBlob.size / 1024).toFixed(2)} KB
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Format:</span>
+                    <span className="font-medium">{audioBlob.type}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Right Column - Transcription */}
+        <div>
+          <TranscriptionDisplay
+            transcript={transcript}
+            duration={duration}
+            language={language}
+            segments={segments}
+            onSave={handleSaveTranscript}
+            isEditable={true}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
