@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { VoiceRecorder } from "@/components/voice/VoiceRecorder";
 import { TranscriptionDisplay } from "@/components/voice/TranscriptionDisplay";
@@ -19,7 +19,7 @@ interface TranscriptionSegment {
   text: string;
 }
 
-export default function NewEncounterPage() {
+function NewEncounterContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const patientId = searchParams.get("patientId");
@@ -220,5 +220,13 @@ export default function NewEncounterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function NewEncounterPage() {
+  return (
+    <Suspense fallback={<div className="container mx-auto py-8">Loading...</div>}>
+      <NewEncounterContent />
+    </Suspense>
   );
 }
