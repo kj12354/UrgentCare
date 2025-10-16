@@ -1,13 +1,20 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
-// Initialize S3 client
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || "us-east-1",
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
-  },
-});
+// Lazy initialization of S3 client
+let s3ClientInstance: S3Client | null = null;
+
+function getS3Client(): S3Client {
+  if (!s3ClientInstance) {
+    s3ClientInstance = new S3Client({
+      region: process.env.AWS_REGION || "us-east-1",
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
+      },
+    });
+  }
+  return s3ClientInstance;
+}
 
 export interface UploadResult {
   key: string;
@@ -41,6 +48,9 @@ export async function uploadAudioToS3(
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
+  // Get S3 client (lazy initialization)
+  const s3Client = getS3Client();
+  
   // Upload to S3
   const command = new PutObjectCommand({
     Bucket: bucket,
@@ -94,6 +104,9 @@ export async function uploadFileToS3(
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
+  // Get S3 client (lazy initialization)
+  const s3Client = getS3Client();
+  
   // Upload to S3
   const command = new PutObjectCommand({
     Bucket: bucket,

@@ -1,9 +1,19 @@
 import OpenAI from "openai";
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy initialization of OpenAI client
+let openaiClient: OpenAI | null = null;
+
+function getOpenAIClient(): OpenAI {
+  if (!openaiClient) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY environment variable is not set");
+    }
+    openaiClient = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
+  return openaiClient;
+}
 
 export interface TranscriptionResult {
   text: string;
@@ -35,6 +45,9 @@ export async function transcribeAudio(
   }
 ): Promise<TranscriptionResult> {
   try {
+    // Get OpenAI client (lazy initialization)
+    const openai = getOpenAIClient();
+    
     // Convert blob to File object (required by OpenAI SDK)
     const file = new File([audioBlob], "audio.webm", { type: audioBlob.type });
 
