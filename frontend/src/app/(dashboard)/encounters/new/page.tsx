@@ -4,13 +4,19 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { VoiceRecorder } from "@/components/voice/VoiceRecorder";
 import { TranscriptionDisplay } from "@/components/voice/TranscriptionDisplay";
+import SOAPNoteEditor from "@/components/soap/SOAPNoteEditor";
+import ICD10Search from "@/components/soap/ICD10Search";
+import DocumentUploader from "@/components/documents/DocumentUploader";
+import DocumentList from "@/components/documents/DocumentList";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Save, Loader2, FileText, Mic, FolderOpen } from "lucide-react";
 import Link from "next/link";
+import { SOAPNote, ICD10Code } from "@/lib/claude";
 
 interface TranscriptionSegment {
   id: number;
@@ -31,6 +37,9 @@ function NewEncounterContent() {
   const [segments, setSegments] = useState<TranscriptionSegment[]>([]);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [soapNote, setSOAPNote] = useState<Partial<SOAPNote> | null>(null);
+  const [isGeneratingSOAP, setIsGeneratingSOAP] = useState(false);
+  const [activeTab, setActiveTab] = useState<'recording' | 'soap' | 'documents'>('recording');
 
   const handleRecordingComplete = (blob: Blob, recordingDuration: number) => {
     setAudioBlob(blob);
@@ -76,6 +85,52 @@ function NewEncounterContent() {
     setTranscript(editedTranscript);
   };
 
+  const handleGenerateSOAP = async () => {
+    if (!transcript || !chiefComplaint) {
+      alert("Please provide a chief complaint and transcription first");
+      return;
+    }
+
+    setIsGeneratingSOAP(true);
+    try {
+      const response = await fetch('/api/soap/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript,
+          chiefComplaint,
+          patientContext: {
+            // Add patient context if available
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate SOAP note');
+      }
+
+      const data = await response.json();
+      setSOAPNote(data.soapNote);
+      setActiveTab('soap');
+    } catch (error) {
+      console.error('Error generating SOAP note:', error);
+      alert('Failed to generate SOAP note. Please try again.');
+    } finally {
+      setIsGeneratingSOAP(false);
+    }
+  };
+
+  const handleSaveSOAPNote = (note: SOAPNote) => {
+    setSOAPNote(note);
+  };
+
+  const handleAddICD10Code = (code: ICD10Code) => {
+    setSOAPNote(prev => ({
+      ...prev,
+      icd10Codes: [...(prev?.icd10Codes || []), code],
+    }));
+  };
+
   const handleSaveEncounter = async () => {
     if (!transcript || !chiefComplaint) {
       alert("Please provide a chief complaint and transcription");
@@ -91,6 +146,7 @@ function NewEncounterContent() {
         chiefComplaint,
         transcript,
         duration,
+        soapNote,
       });
 
       // For now, just navigate back
@@ -120,7 +176,7 @@ function NewEncounterContent() {
           </Link>
           <div>
             <h1 className="text-3xl font-bold">New Encounter</h1>
-            <p className="text-gray-600">Record and transcribe patient encounter</p>
+            <p className="text-gray-600">Record, transcribe, and document patient encounter</p>
           </div>
         </div>
         <Button
@@ -142,7 +198,26 @@ function NewEncounterContent() {
         </Button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* Main Tabs */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'recording' | 'soap' | 'documents')}>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="recording">
+            <Mic className="h-4 w-4 mr-2" />
+            Recording & Transcription
+          </TabsTrigger>
+          <TabsTrigger value="soap" disabled={!transcript}>
+            <FileText className="h-4 w-4 mr-2" />
+            SOAP Note
+          </TabsTrigger>
+          <TabsTrigger value="documents">
+            <FolderOpen className="h-4 w-4 mr-2" />
+            Documents
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Recording Tab */}
+        <TabsContent value="recording" className="mt-6">
+          <div className="grid gap-6 lg:grid-cols-2">
         {/* Left Column - Recording & Info */}
         <div className="space-y-6">
           <Card>
@@ -219,6 +294,51 @@ function NewEncounterContent() {
           />
         </div>
       </div>
+        </TabsContent>
+
+        {/* SOAP Note Tab */}
+        <TabsContent value="soap" className="mt-6">
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Main SOAP Editor - 2 columns */}
+            <div className="lg:col-span-2">
+              <SOAPNoteEditor
+                initialNote={soapNote || undefined}
+                onSave={handleSaveSOAPNote}
+                onGenerate={handleGenerateSOAP}
+                isGenerating={isGeneratingSOAP}
+              />
+            </div>
+
+            {/* ICD-10 Search Sidebar - 1 column */}
+            <div>
+              <ICD10Search
+                onSelect={handleAddICD10Code}
+                selectedCodes={soapNote?.icd10Codes || []}
+              />
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Documents Tab */}
+        <TabsContent value="documents" className="mt-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Document Uploader */}
+            <DocumentUploader
+              patientId={patientId || 'unknown'}
+              encounterId={undefined}
+              onUploadComplete={() => {
+                // Refresh document list after upload
+              }}
+            />
+
+            {/* Document List */}
+            <DocumentList
+              patientId={patientId || 'unknown'}
+              encounterId={undefined}
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
