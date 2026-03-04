@@ -8,17 +8,22 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  emailVerified DateTime?
-  name          String?
-  password      String
-  role          Role      @default(STAFF)
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  accounts      Account[]
-  sessions      Session[]
+  id             String          @id @default(cuid())
+  email          String          @unique
+  emailVerified  DateTime?
+  name           String?
+  password       String
+  role           Role            @default(STAFF)
+  image          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  accounts       Account[]
+  sessions       Session[]
+  // WebAuthn passkeys registered by this user (biometric / hardware key authentication)
+  // WHY: Each passkey stores the public key half of a key pair generated on the user's
+  // device. The private key never leaves the secure enclave (Touch ID chip, Face ID,
+  // Windows Hello TPM). Multiple passkeys are allowed (phone + laptop + security key).
+  authenticators Authenticator[]
 }
 
 model Account {
@@ -102,5 +107,49 @@ model AuditLog {
   entity    String
   entityId  String?
   ip        String?
+  // Structured JSON metadata about the action (e.g., file type, role used, route).
+  // WHY JSON string vs columns: audit log fields vary by action type. Storing as JSON
+  // avoids a wide table with mostly-null columns while keeping data queryable.
+  // No PHI is stored here — only metadata (IDs, types, sizes).
+  details   String?
   createdAt DateTime @default(now())
+
+  @@index([userId])    // Query: "all actions by this user" (access reports)
+  @@index([entity, entityId]) // Query: "all access to this patient record"
+  @@index([action])    // Query: "all PHI_DELETE events"
+  @@index([createdAt]) // Query: "all events in date range" (compliance reports)
+}
+
+// WebAuthn Authenticator (Passkey / Biometric Credential)
+// WHY THIS TABLE: WebAuthn (FIDO2) is the W3C standard for phishing-resistant,
+// passwordless authentication. When a user registers a passkey (Touch ID, Face ID,
+// Windows Hello, security key), the browser generates an asymmetric key pair on
+// the device. The PRIVATE key stays in the secure enclave and never leaves the device.
+// The PUBLIC key is sent to our server and stored here for signature verification.
+// COUNTER: Monotonically increases each use. If server sees counter <= stored value,
+// the credential was likely CLONED — authentication is rejected (FIDO2 anti-cloning).
+model Authenticator {
+  id           String   @id @default(cuid())
+  userId       String
+  // credentialID: base64url-encoded credential identifier from the authenticator.
+  // Used to look up the right public key during authentication.
+  credentialID String   @unique
+  // publicKey: COSE-encoded public key (binary). Used to verify authentication signatures.
+  publicKey    Bytes
+  // counter: monotonically increasing signature counter. Incremented by the authenticator
+  // on every use. Allows server to detect cloned authenticators (cloning attack).
+  counter      BigInt
+  // deviceType: "platform" = built-in (Touch ID, Face ID, Windows Hello)
+  //             "cross-platform" = external (YubiKey, security key)
+  deviceType   String
+  // backedUp: true if the passkey is synced to iCloud Keychain, Google Password Manager,
+  //           etc. Backed-up passkeys can be restored if the device is lost.
+  backedUp     Boolean
+  // transports: JSON array of transport mechanisms (e.g., ["internal"], ["usb", "nfc"])
+  //             Used to filter authenticators during authentication ceremony.
+  transports   String?
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
